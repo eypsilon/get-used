@@ -1,0 +1,99 @@
+html,
+body,
+blockquote,
+hr,
+h1,
+h2,
+h3 {
+    margin: 0;
+    padding: 0;
+    outline: 0;
+}
+html {
+    background: #f1f1f1;
+}
+main {
+    background: #fff;
+    border: 0 solid #ddd;
+    border-width: 2px 0 2px 0;
+}
+main pre:not(:last-of-type) {
+    border-bottom: 2px solid #ddd;
+}
+footer {
+    padding: 10px 0;
+    text-align: center;
+}
+footer small {
+    font-size: .7em;
+}
+h1, h2, h3 {
+    margin-top: .33em;
+}
+h2, h3 {
+    padding: 10px 15px 0 15px;
+    font-size: 1.1em;
+}
+h3 {
+    margin-bottom: 15px;
+    font-size: 1em;
+}
+h3 + pre {
+    margin-top: -15px;
+}
+span, a {
+    font-size: .75em;
+}
+span, [disabled] {
+    color: #888;
+    pointer-events: none;
+}
+a {
+    margin-left: 5px;
+    display: inline-block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+a:visited {
+    color: #0000ee;
+}
+pre a {
+    font-size: 1em;
+}
+nav {
+    margin: 15px 0;
+}
+pre {
+    margin: 0;
+    padding: 15px;
+    overflow: auto;
+}
+form {
+    padding: 15px;
+}
+form div {
+    display: flex;
+}
+form div:not(:last-of-type) {
+    margin: 0 0 8px;
+}
+label, button, input, select, span, form a {
+    margin-right: -1px;
+    padding: 5px 10px;
+    border: 1px solid #bbb;
+    border-radius: 0;
+}
+label input {
+    margin: 2px 0 0;
+}
+input, select {
+    width: 100%;
+    display: block;
+}
+button {
+    color: #eee;
+    background: #333;
+    white-space: nowrap;
+    cursor: pointer;
+}

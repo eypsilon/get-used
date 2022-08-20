@@ -1,0 +1,6 @@
+vendor/
+.github/
+.notes
+composer.lock
+user.config.php
+**last.used.log*
