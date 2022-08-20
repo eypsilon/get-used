@@ -24,7 +24,7 @@ mkdir -p ~/bin/many/get-used
 cd ~/bin/many/get-used
 
 # clone Many\Dev\Used
-git clone https://github.com/eypsilon/get-used.git
+git clone https://github.com/eypsilon/get-used.git .
 
 # make it executable (user+group = rwx)
 chmod -v 770 ~/bin/many/get-used/GetUsed.php
