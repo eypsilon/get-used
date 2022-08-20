@@ -1,4 +1,4 @@
-# Many\Dev\Used | Namespace helper - get use Namespace\Keywords;
+# Namespace helper - get use Namespace\Keywords;
 
 This package can create `use Keywords;` lists with all names of Classes, Functions and Constants used within a Class. It can be used from the Terminal or alternatively from a simple [Web interface](./www/used/).
 
