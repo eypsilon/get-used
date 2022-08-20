@@ -79,8 +79,7 @@ if (empty($_GET['class']))
  * @var mixed Template Engin © 1999 eypsilon
  */
 ?><!DOCTYPE html>
-<html><head>
-<meta charset="utf-8" />
+<html><head><meta charset="utf-8" />
 <title><?= $printUsedClass ?? $getInfo['lib'] ?? 'Many' ?> | local-dev-many-title</title>
 <meta name="description" content="<?= $getInfo['lib'] ?? 'Many' ?> - use Keywords generator" />
 <link rel="icon" sizes="16x16" href="/assets/favicon.ico" />
@@ -118,8 +117,11 @@ if (empty($_GET['class']))
         <?php } ?>
         <div>
             <button type="submit">Get</button>
-            <?= ($out['file'] ?? false) ? sprintf('<a href="vscode://file//%1$s" title="%1$s">%1$s</a>', $out['file']) : null ?>
-            <a href="/">reset</a>
+            <?= $_GET ? sprintf('<a href="/" title="Reset">✕</a>', $out['file'] ?? null) : null ?>
+            <?= ($out['file'] ?? false) ? sprintf('<a href="vscode://file//%1$s" title="vscode %1$s">%1$s</a> %2$s'
+                    , $out['file']
+                    , $out['file'] !== ($_GET['file'] ?? null) ? "<a href='/?file={$processedRequestedClass}'>»</a>" : null
+            ) : null ?>
         </div>
     </form>
 </header>
@@ -127,11 +129,11 @@ if (empty($_GET['class']))
 <main>
     <pre><?= $printUseList ? trim(htmlspecialchars($printUseList)) : "\n/**\n * Nothing to use\n */" ?></pre>
     <pre><b>shell_exec(</b><?= "\n  " . htmlspecialchars(implode("\n  ", explode(' ', implode(' ', $exec)))) . "\n" ?><b>)</b></pre>
-    <?= ($execRun ?? null) ? '<pre>' . htmlspecialchars(implode(" ", explode(' ', implode(' ', $exec)) )) . '</pre>' : null ?>
+    <?= ($execRun ?? null) ? '<pre>' . htmlspecialchars(implode(' ', $exec)) . '</pre>' : null ?>
 </main>
 
 <footer>
-    <h1><?= $getInfo['lib'] ?? 'Many' ?></h1>
+    <h1><?= $getInfo['lib'] ?? 'Many\Dev' ?></h1>
     <nav><?php foreach($usedOptions as $key => $short)
         $navs[] = sprintf($short === ($_GET['file'] ?? null) ? '<a>%1$s</a>' : '<a href="?file=%2$s">%1$s</a>', $key, $short);
         print implode(' / ', $navs);
