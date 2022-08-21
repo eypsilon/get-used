@@ -114,10 +114,7 @@ if ($class) {
             'print' => $getUsed['print'] ?? null,
         ];
         if ('json' === ($argv['return'] ?? null)) {
-            $r = json_encode(array_merge($r, [
-                'included' => $diff,
-                'response' => $getUsed,
-            ]), JSON_PRETTY_PRINT);
+            $r = json_encode(array_merge($r, ['included' => $diff, 'response' => $getUsed,]), JSON_PRETTY_PRINT);
         } else {
             $rPrint = [];
             foreach($r as $k => $v)

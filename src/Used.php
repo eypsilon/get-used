@@ -4,7 +4,6 @@ namespace Many\Dev;
 
 use Exception;
 use ReflectionClass;
-
 use function array_combine;
 use function array_keys;
 use function array_merge;
@@ -42,7 +41,6 @@ use function str_replace;
 use function str_starts_with;
 use function strpos;
 use function trim;
-
 use const PHP_EOL;
 use const JSON_UNESCAPED_SLASHES;
 use const JSON_PRETTY_PRINT;
@@ -100,6 +98,17 @@ class Used
     ];
 
     /**
+     * @var array Detect when class contents starts
+     */
+    private $classIndicatorNames = [
+        'class',
+        'final',
+        'abstract',
+        'interface',
+        'trait',
+    ];
+
+    /**
      * @var array declared class
      */
     private static $getDeclaredClassList = [];
@@ -108,7 +117,6 @@ class Used
      * @var array declared class
      */
     private static $getNamespaceTree = [];
-
 
     /**
      * Searches in a given Class for used classes, functions & consts to build a list with use statements
@@ -130,15 +138,17 @@ class Used
             $tmpClassContent = $getClassContent;
             if ($rflctr->getDocComment())
                 $getClassContent = str_replace($rflctr->getDocComment(), '', $getClassContent);
-            foreach($rflctr->getMethods() as $i => $v) {
-                $getMethDoc = $rflctr->getMethod($v->getName())->getDocComment();
-                if ($getMethDoc)
+            foreach($rflctr->getMethods() as $v) {
+                if ($getMethDoc = $rflctr->getMethod($v->getName())->getDocComment()) {
                     $getClassContent = str_replace($getMethDoc, '', $getClassContent);
+                    break;
+                }
             }
-            foreach($rflctr->getProperties() as $i => $v) {
-                $getMethDoc = $rflctr->getProperty($v->getName())->getDocComment();
-                if ($getMethDoc)
+            foreach($rflctr->getProperties() as $v) {
+                if ($getMethDoc = $rflctr->getProperty($v->getName())->getDocComment()) {
                     $getClassContent = str_replace("$getMethDoc", '', $getClassContent);
+                    break;
+                }
             }
             $r = [
                 'filename'     => $rflctr->getFileName(),
@@ -148,8 +158,7 @@ class Used
                 'file_content' => trim(str_replace('<?php ', '', $tmpClassContent)),
                 'reflection'   => $rflctr->hasMethod('__toString') ? trim($rflctr->__toString()) : null,
             ];
-            $r['methods'] = sprintf(
-                '/** Copy&Paster */%3$s%3$suse %1$s;%3$s$var = new \\%1$s;%3$s%3$s%2$s'
+            $r['methods'] = sprintf('/** Copy&Paster */%3$s%3$suse %1$s;%3$s$var = new \\%1$s;%3$s%3$s%2$s'
                 , $forClass
                 , $this->getMethodList($rflctr)
                 , PHP_EOL
@@ -161,7 +170,6 @@ class Used
         $r['namespace_tree'] = $this->getNamespaceTree();
         return $r;
     }
-
 
     /**
      * Get available namespace trees
@@ -177,7 +185,6 @@ class Used
         }
         return $r;
     }
-
 
     /**
      * Get Classes for specific Namespace
@@ -209,7 +216,6 @@ class Used
             'use_nested' => $this->buildUseNestedStr($namespace, $r),
         ];
     }
-
 
     /**
      * Get included files
@@ -258,7 +264,6 @@ class Used
         return null;
     }
 
-
     /**
      * Get root path from this class
      *
@@ -271,7 +276,6 @@ class Used
             'path' => realpath('../'),
         ];
     }
-
 
     /**
      * Get Composer generated Class map
@@ -300,7 +304,6 @@ class Used
         return array_values($combine);
     }
 
-
     /**
      * Search needle in Path iteratively, from left to write
      *
@@ -321,7 +324,6 @@ class Used
         return null;
     }
 
-
     /**
      * Remove duplicates from print list
      *
@@ -341,37 +343,44 @@ class Used
         return $r ? implode(PHP_EOL, $r) : null;
     }
 
-
     /**
      * Printed result
      *
      * @param array $res
      * @param array $r temp var
      * @param string $s temp var
+     * @param int $totalMatches
      * @return string|null
      */
-    protected function toString(array $res, array $r=[], string $s=null): ?string
+    protected function toString(array $res, array $r=[], string $s=null, int $totalMatches=0): ?string
     {
         $tpl = $this->useTemplate;
         foreach($res as $name => $arr) {
             if ($tpl[$name] ?? false) {
                 $count = is_countable($arr) ? count($arr) : null;
                 if ($count) {
-                    $r[] = sprintf('%s(%s)', $name, $count);
+                    $totalMatches += $count;
+                    $r[$count+1] = sprintf('%s(%s)', $name, $count);
                     foreach($arr as $var)
                         $s .= sprintf($tpl[$name], $var, PHP_EOL);
-                        $s .= PHP_EOL;
                 }
             }
         }
         $getExisting = $this->getExistingUses($res['file_content'], (string) $s);
-        if ($getExisting) {
-            $r = array_merge([sprintf('existing(%s)', count($getExisting))], $r);
-            $s = implode(PHP_EOL, $getExisting) . "\n$s";
+        if ($getExisting['use_defined'] ?? false)
+            $r['a'] = sprintf('lines(%s-%s)', $getExisting['use_first_line'], $getExisting['use_last_line']);
+        if ($getExisting['missed'] ?? false) {
+            $r['b'] = sprintf('taken(%s)', $missedNamesTotal = count($getExisting['missed']));
+            $s = implode(PHP_EOL, $getExisting['missed']) . "\n$s";
         }
-        return !$r ? null : trim(sprintf('/** %1$s */%3$s%3$s%2$s', implode(', ', $r), $s, PHP_EOL));
+        ksort($r);
+        return !$r ? null : trim(sprintf('/** %1$s, total(%4$s) */%3$s%3$s%2$s'
+            , implode(', ', $r)
+            , $s
+            , PHP_EOL
+            , $totalMatches + ($missedNamesTotal ?? 0)
+        ));
     }
-
 
     /**
      * Get existing use Keywords, that are missing in the generated ones
@@ -383,14 +392,26 @@ class Used
      */
     protected function getExistingUses(string $content, string $checkIn, array $r=[]): array
     {
-        foreach(explode(PHP_EOL, $content) as $l) {
+        $classStartsHere = function($l) {
+            foreach($this->classIndicatorNames as $n)
+                if (str_starts_with($l, $n))
+                    return true;
+            return false;
+        };
+        foreach(explode(PHP_EOL, $content) as $i => $l) {
             $l = $l ? trim($l) : $l;
-            if (str_starts_with($l, 'use ') AND str_ends_with($l, ';') AND !str_contains($checkIn, $l))
-                $r[] = $l;
+            if ($classStartsHere($l))
+                break;
+            elseif (str_starts_with($l, 'use ') AND str_ends_with($l, ';')) {
+                $r['use_defined'][$i+1] = $l;
+                if (!str_contains($checkIn, $l))
+                    $r['missed'][] = $l;
+            }
         }
+        $r['use_first_line'] = array_key_first($r['use_defined'] ?? []);
+        $r['use_last_line'] = array_key_last($r['use_defined'] ?? []);
         return $r;
     }
-
 
     /**
      * Get metod list for selected Class
@@ -480,7 +501,6 @@ class Used
         return $r;
     }
 
-
     /**
      * Builds "use Namespeced\Class\Statements;" for all
      * available classes in composers classmap
@@ -504,7 +524,6 @@ class Used
         return $useList;
     }
 
-
     /**
      * build "use Namespaced\List\Statement;"
      *
@@ -515,7 +534,6 @@ class Used
     {
         return 'use ' . implode(';' . PHP_EOL . 'use ', $classes) . ';';
     }
-
 
     /**
      * Create "use Namespaced\{Nested\Statement,Chained\Statements};"
@@ -533,7 +551,6 @@ class Used
             /*4*/, PHP_EOL
         );
     }
-
 
     /**
      * Get declared classes list, requires all classes from namespace
@@ -568,7 +585,6 @@ class Used
         return self::$getDeclaredClassList = self::$getDeclaredClassList
             ? self::$getDeclaredClassList : get_declared_classes();
     }
-
 
     /**
      * Get Used Classes
@@ -611,7 +627,6 @@ class Used
         return array_values($r);
     }
 
-
     /**
      * Get Used PHP internal Functions
      *
@@ -651,7 +666,6 @@ class Used
         natsort($r);
         return array_values($r);
     }
-
 
     /**
      * Search in content for used Constants

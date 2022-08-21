@@ -52,7 +52,7 @@ GetUsed -h
 
 ---
 
-## Via Browser as a Web Service
+### Via Browser as a Web Service
 
 You can use PHPs dev-server for temporary usage or configure a vhost and point the __DocumentRoot__ to `~/bin/many/get-used/www/used`.
 
@@ -64,7 +64,7 @@ php -S localhost:8000
 
 and open [localhost:8000](http://localhost:8000)
 
-Or, set an Alias, that can start the dev-server and a Browser with the dev-url at once. You can still feel free to set any Alias you feel comfortable with, always. Your choice, not my.
+Or, set an Alias, that can start the dev-server and a Browser with the dev-url at once. You can still feel free to set any Alias you feel comfortable with, always.
 
 ```sh
 # set alias in ~/.bash_aliases
@@ -77,7 +77,7 @@ phpserver
 
 ---
 
-#### Get Used in Visual Studio Code
+### Used in Visual Studio Code
 
 You can use this Lib also in VSCode. Set a key combination in `~/.config/Code/User/keybindings.json`
 
@@ -93,7 +93,9 @@ and hit the combo on open Files to get `use Keywords;` on the fly.
 
 ---
 
-### Example output
+#### Example output
+
+If the generated `use Keywords;` are already defined in the target Class, the generated ones will get commented out.
 
 ```sh
 GetUsed /path/to/src/Http/Curler.php
@@ -107,26 +109,20 @@ GetUsed /path/to/src/Http/Curler.php
 
 use DateTime;
 use DateTimeZone;
-
 use function array_keys;
 use function array_merge;
-
 use const PHP_EOL;
 use const JSON_UNESCAPED_SLASHES;
 ```
 
-If the `use Keywords;` are already defined in the target Class, the generated ones will get commented out.
+#### Screenshots
 
-```php
-/**
- * @var array Set config
- */
-Used::setConfig([
-    'exclude' => [
-        'class' => [],
-        'function' => [],
-        'constant' => [],
-        'method' => [],
-    ],
-]);
-```
+__Web Interface__
+A Web-based GUI for `GetUsed`, because Terminal. It burns in my eyes when i look at it ...
+
+![Web Interface Example Response](/www/used/assets/screenshot-sw.png)
+
+__Terminal__
+The screenshot is taken from the web interface, but it looks identical in Terminal.
+
+![Terminal Example Response](/www/used/assets/screenshot-sw-terminal-out.png)
