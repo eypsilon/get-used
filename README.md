@@ -22,14 +22,14 @@ use function myOwnJsonEcode as json_encode;
 ## Install Many\Dev\Used
 
 ```sh
-# create directory
-mkdir -p ~/bin/many/get-used
+# create directory if not exist
+mkdir -p ~/bin/many
 
 # enter directory
-cd ~/bin/many/get-used
+cd ~/bin/many
 
-# clone Many\Dev\Used (including the dot at the end)
-git clone https://github.com/eypsilon/get-used.git .
+# clone Many\Dev\Used
+git clone https://github.com/eypsilon/get-used.git
 
 # make it executable (user+group = rwx)
 chmod -v 770 ~/bin/many/get-used/GetUsed.php
