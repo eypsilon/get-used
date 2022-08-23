@@ -1,9 +1,0 @@
-<?php
-
-// remove ".example" from filename to activate and
-// overwrite default configs. Will be ignored on Updates.
-
-return [
-    'config' => [
-    ],
-];

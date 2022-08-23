@@ -8,11 +8,7 @@ return [
 
     'config' => [
         'args' => [
-            'project_dir',
-            'autoload',
-            'include',
             'file',
-            'class',
             'return',
             'comment_out',
         ],
@@ -25,11 +21,7 @@ return [
 
     'help' => [
         'args' => [
-            'project_dir' => 'Path to project',
-            'autoload' => "Path to './vendor/autoload.php' file",
-            'include' => 'Comma separated paths to include additionally files',
             'file' => 'File to get the use keywords for',
-            'class' => 'Set a Namespace to select a Class from availables',
             'return' => 'Set return content type',
             'comment_out' => 'Avoid commenting out already defined use keywords found in the Class',
         ],

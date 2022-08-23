@@ -64,8 +64,13 @@ label, button, input, select, span, form a {
     border: 1px solid #bbb;
     border-radius: 0;
 }
+label {
+    display: flex;
+    cursor: pointer;
+}
 label input {
-    margin: 2px 0 0;
+    margin: 2px 0 0 .4rem;
+    width: auto;
 }
 input, select {
     width: 100%;

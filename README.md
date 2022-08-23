@@ -1,18 +1,23 @@
-# Namespace helper - get use Namespace\Keywords;
+# Namespace helper - use Namespace\Keywords;
 
-This package can create `use Keywords;` with all the names of Classes, Functions and Constants used within a Class. It can be used from the Terminal or alternatively from a simple [Web interface](./www/used/).
+This package can parse PHP scripts to extract the names of PHPs internal Classes, Functions and Constants used within a Class. The parsed Names can then be used to define `use Namespace\Keywords;` in namespaced Classes.
 
-The `use` keyword can be used within Classes to tell PHP, which Classes, Functions and Constants to use internally for Functions used in your Class. It also can boost your scripts by pointing PHP to the right Namespace to use. For example, if you call `json_encode()` within a Class, PHP searches in the calling Class for a Function with the name `json_encode()` first, before searching it in the global Namespace (if at all). You can speed up the process with a Backslash before the function name, like: `\json_encode()`, but IDK, it looks awful. To make it a bit prettier, you can define any used Functions, Classes and Constants at the very top of your Class with the 'use'-keyword and continue programming like a Boss.
 
-It also allows you to Alias your scripts quick and easy.
+__VSCode Screenshot__
+
+It's pretty hard to talk about this Topic, because it's just called "Namespace" ...
+
+![Visual Studio Code Example Response](/www/used/assets/screenshot-vscode.png)
+
+The `use` keyword can be used within Classes to tell PHP, which Classes, Functions and Constants to use internally for Functions used in your Class. It also can boost your scripts by pointing PHP to the right Namespace to use. For example, if you call `json_encode()` within a Class, PHP searches in the calling Class for a Function with the name `json_encode()` first, before searching it in the global Namespace (if at all). You can speed up the process with a Backslash before the function name, like: `\json_encode()`, but IDK, it looks awful. An alternate is to define any used Function, Class and Constant at the very top of your Class with the 'use'-keyword. And that's for what this Package is meant to be.
+
+The `use` keyword also allows you to Alias and change your scripts quick and easy.
 
 ```php
-use function needToChangeHtmlspecialchars as htmlspecialchars;
-# if you now call "htmlspecialchars()" in your class, PHP will
-# use "needToChangeHtmlspecialchars()" to execute it.
+use function myOwnJsonEcode as json_encode;
+# if you now call "json_encode()" in your class,
+# PHP will use "myOwnJsonEcode()" to execute it.
 ```
-
-This Package searches in the parent directory of the given file for `./vendor/autoload.php` iteratively and includes it, if found. It's required, if the Environment is namespaced and Classes are depending on other Classes within the Project.
 
 ## Install Many\Dev\Used
 
@@ -30,7 +35,26 @@ git clone https://github.com/eypsilon/get-used.git .
 chmod -v 770 ~/bin/many/get-used/GetUsed.php
 ```
 
-Set an Alias (feel free to set one you feel comfortable with)
+__Usage from Terminal__
+
+```sh
+~/bin/many/get-used/GetUsed.php  file="/path/to/src/AnyClass.php"
+```
+
+__Via [Web interface](./www/used/) using PHPs dev-server__
+
+```sh
+cd ~/bin/many/get-used/www/used
+php -S localhost:8000
+```
+
+and open [localhost:8000](http://localhost:8000)
+
+---
+
+## Set an Alias (optional)
+
+Feel free to set one you feel comfortable with.
 
 ```sh
 ~$ sudo gedit ~/.bash_aliases
@@ -39,9 +63,6 @@ alias GetUsed='~/bin/many/get-used/GetUsed.php'
 # refresh aliases
 ~$ source ~/.bash_aliases
 ```
-
-and use it from the Terminal
-
 ```sh
 GetUsed file="/path/to/src/AnyClass.php"
 # or
@@ -49,37 +70,11 @@ GetUsed /path/to/src/AnyClass.php
 # Get help -h | info -i | config -c
 GetUsed -h
 ```
-
 ---
 
-### Via Browser as a Web Service
+### Used Keywords in Visual Studio Code
 
-You can use PHPs dev-server for temporary usage or configure a vhost and point the __DocumentRoot__ to `~/bin/many/get-used/www/used`.
-
-```sh
-# using PHPs dev-server
-cd ~/bin/many/get-used/www/used
-php -S localhost:8000
-```
-
-and open [localhost:8000](http://localhost:8000)
-
-Or, set an Alias, that can start the dev-server and a Browser with the dev-url at once. You can still feel free to set any Alias you feel comfortable with, always.
-
-```sh
-# set alias in ~/.bash_aliases
-alias phpserver='firefox http://localhost:8000; php -S localhost:8000'
-
-# and whenever you need a dev-server
-cd ~/any/dir/app/public
-phpserver
-```
-
----
-
-### Used in Visual Studio Code
-
-You can use this Lib also in VSCode. Set a key combination in `~/.config/Code/User/keybindings.json`
+You can use this Package also in VSCode. Set a key combination in `~/.config/Code/User/keybindings.json`
 
 ```json
 {
@@ -103,9 +98,10 @@ GetUsed /path/to/src/Http/Curler.php
 
 ```php
 // file = /path/to/src/Http/Curler.php
-// use_for_class = Many\Http\Curler
+// start = 1661266197.6779
+// end = 1661266197.7762
 
-/** class(2), function(2), constant(2) */
+/** lines(-), defined(0), taken(0), constant(2), class(2), function(2), total(6) */
 
 use DateTime;
 use DateTimeZone;
@@ -117,8 +113,8 @@ use const JSON_UNESCAPED_SLASHES;
 
 #### Screenshots
 
-__Web Interface__
-A Web-based GUI for `GetUsed`, because Terminal. It burns in my eyes when i look at it ...
+__Web Interface for `GetUsed`__
+
 
 ![Web Interface Example Response](/www/used/assets/screenshot-sw.png)
 
