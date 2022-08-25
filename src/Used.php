@@ -2,14 +2,13 @@
 
 namespace Many\Dev;
 
-use function array_key_first;
-use function array_key_last;
+use Exception;
+use Generator;
+use const PHP_EOL;
 use function array_keys;
 use function array_merge;
 use function array_merge_recursive;
-use function array_values;
 use function count;
-use function defined;
 use function explode;
 use function file_get_contents;
 use function get_declared_classes;
@@ -23,7 +22,6 @@ use function is_array;
 use function is_countable;
 use function is_file;
 use function is_string;
-use function ksort;
 use function natsort;
 use function preg_match;
 use function preg_match_all;
@@ -33,22 +31,26 @@ use function str_ends_with;
 use function str_replace;
 use function str_starts_with;
 use function trim;
-use const PHP_EOL;
 
 /**
- * Get use-keywords for Classes, Functions and Constants used in a Class
+ * Create use statements with names of Classes, Functions and Constants used in a Class
  *
  * @author Engin Ypsilon <engin.ypsilon@gmail.com>
  * @license http://www.opensource.org/licenses/mit-license.html MIT License
  */
 class Used
 {
+    /**
+     * @var string Info line, if all use statements are defined in script
+     */
+    const USE_IS_COMPLETE = 'USE_IS_COMPLETE';
 
     /**
      * @var array Class config
      */
     private static $config = [
-        'comment_out' => true, // existing
+        'comment_out' => true, // existing use statements
+        'remove_doc_blocks' => true,
     ];
 
     /**
@@ -58,11 +60,10 @@ class Used
         'class'    => [],
         'function' => [],
         'constant' => [],
-        'method'   => ['__construct'],
     ];
 
     /**
-     * @var array templates for finale "use Statements;"
+     * @var array templates for final "use Namespace;" Statements
      */
     private $useTemplate = [
         'class'    => 'use %1$s;%2$s',
@@ -78,17 +79,29 @@ class Used
     ];
 
     /**
-     * Get used Statements from plain file, avoiding the use of Reflection and Namespaces
+     * @var string|null Filepath to parse
+     */
+    private $file = null;
+
+    /**
+     * @var string|null Filecontent
+     */
+    private $fileContent = null;
+
+
+    /**
+     * Get used Statements
      *
-     * @param string $f file
+     * @param string $f filepath
      * @param array $c config
      * @return array|null
      */
     function get(string $f, array $c=[]): ?array
     {
+        $this->file = $f;
         if ($c)
             $this->setConfig($c);
-        return $this->buildUsed($f);
+        return $this->buildUsed();
     }
 
     /**
@@ -105,205 +118,169 @@ class Used
     }
 
     /**
-     * Get Used
+     * Get file content
      *
-     * @param string $f file
-     * @return array|null
+     * @return string|null
      */
-    protected function buildUsed(string $f): ?array
+    protected function getContent(): ?string
     {
-        if (is_file($f) AND $c = file_get_contents($f)) {
-            $c = $this->removeDocBlocks($c);
-            $r = [
-                'file' => $f,
-                'class' => $this->getUsedClasses($c),
-                'function' => $this->getUsedFunctions($c),
-                'constant' => $this->getUsedConstants($c),
-                'file_content' => trim(str_replace('<?php ', '', $c)),
-            ];
-            $r['print'] = $this->filterExistingUses($c, (string) $this->useToString($r));
-        }
-        return $r ?? null;
+        if (is_file($this->file) AND $c = file_get_contents($this->file))
+            return $c;
+        return null;
+    }
+
+    /**
+     * Build Used
+     *
+     * @return array|null
+     * @throws Exception
+     */
+    protected function buildUsed(): ?array
+    {
+        if ($c = $this->getContent()) {
+            $this->fileContent = self::$config['remove_doc_blocks']
+                ? $this->rmDocBlocks($c)
+                : $c ;
+            $this->fileContentArray = explode(PHP_EOL, $this->fileContent);
+            return ['print' => $this->filterExistingUses($this->useToString([
+                'class' => $this->usedClasses(),
+                'constant' => $this->usedConstants(),
+                'function' => $this->usedFunctions()
+            ]))];
+        } throw new Exception("Failed to get content\n{$this->file}");
     }
 
     /**
      * Comment duplicates out in print list
      *
-     * @param string $h haystack
-     * @param string $n needles
+     * @param string $n needles [class: [log,print_r], constant: [...], function: [...]]
+     * @param array $c count existing
      * @param array $r temp var
      * @return string|null
      */
-    protected function filterExistingUses(string $h, string $n, array $r=[]): ?string
+    protected function filterExistingUses(string $n, $count=0, array $r=[]): ?string
     {
         $doc = self::$config['comment_out'] ? '// ' : null;
-        $count = 0;
-        foreach(explode(PHP_EOL, $n) as $i => $n) {
-            if ($i > 1 AND str_contains($h, $n)) {
-                if ($n)
-                    ++$count;
-                $r[] = $n ? "{$doc}{$n}" . ($i == 0 ? PHP_EOL : null) : null;
-            } else $r[] = $n;
+        // $n contains classes, constants and functions found in haystack
+        foreach($this->useGenerator($stmts = explode(PHP_EOL, $n)) as $i => $v) {
+            if ($i > 0 AND str_contains($this->fileContent, $v)) {
+                if ($v AND ++$count)
+                    $r[] = "{$doc}{$v}";
+                else $r[] = null;
+            } else $r[] = $v;
         }
         if (isset($r[0]) AND is_string($r[0]))
-            $r[0] = str_replace('{{ALREADY_DEFINED}}', (string) $count, $r[0]);
+            $r[0] = str_replace('{{DEFINED}}', (string) $count, $r[0]);
+        if (count($stmts)-2 === $count)
+            $r = array_merge([self::USE_IS_COMPLETE . PHP_EOL], $r);
         return $r ? implode(PHP_EOL, $r) : null;
     }
 
     /**
      * Printed result
      *
-     * @param array $res
-     * @param array $r temp var
-     * @param string $s temp var
-     * @param int $totalMatches
-     * @return string|null
+     * @param array $contents expects ['class': [], 'constant': [], 'function': []]
+     * @param int $countUse count temp var
+     * @param array $useList temp var
+     * @return string
      */
-    protected function useToString(array $res, array $r=[], string $s=null, int $totalMatches=0): ?string
+    protected function useToString(array $contents, int $countUse=0, array $useList=[]): string
     {
-        $tpl = $this->useTemplate;
-        $rs = $err = [];
-        foreach($res as $name => $arr) {
-            if ($tpl[$name] ?? false) {
+        $labels = [0];
+        foreach($this->useGenerator($contents) as $name => $arr) {
+            if ($this->useTemplate[$name] ?? false) {
                 $count = is_countable($arr) ? count($arr) : null;
                 if ($count) {
-                    $totalMatches += $count;
-                    $r[$count+1] = sprintf('%s(%s)', $name, $count);
+                    $countUse += $count;
+                    $labels[] = sprintf('%s(%s)', $name, $count);
                     foreach($arr as $var)
-                        $rs[] = sprintf($tpl[$name], $var, null);
+                        $useList[] = sprintf($this->useTemplate[$name], $var, null);
                 }
             }
         }
-
-        $s = implode(PHP_EOL, $rs);
-        $getExisting = $this->getExistingUses($res['file_content'], (string) $s);
-
-        // check for possbible duplicates, prefers already existing ones found on top of file
-        if ($getExisting['missed'] ?? false) {
-            foreach($rs as $i => $useStmt) {
-                $useStmt = str_replace('use ', '', $useStmt);
-                foreach($getExisting['missed'] as $existing) {
-                    if (str_ends_with($existing, '\\' . $useStmt)) {
-                        if (isset($rs[$i])) {
-                            $err[] = "// ## possible duplicate detected\n// ## {$rs[$i]}";
-                            unset($rs[$i]);
-                        }
-                    }
-                }
-            }
-            $s = implode(PHP_EOL, $rs);
-        }
-
-        if ($getExisting['use_defined'] ?? false)
-            $r['a'] = sprintf('lines(%s-%s), defined({{ALREADY_DEFINED}})'
-                , $getExisting['use_first_line']
-                , $getExisting['use_last_line']
-            );
-
-        if ($getExisting['missed'] ?? false) {
-            $r['b'] = sprintf('taken(%s)', $missedNamesTotal = count($getExisting['missed']));
-            $s = implode(PHP_EOL, $getExisting['missed']) . "\n$s";
-        }
-
-        if ($err)
-            $s = implode(PHP_EOL, $err) . "\n\n$s";
-
-        ksort($r);
-        return !$r ? null : trim(sprintf(
-            '/** %1$s, total(%4$s) */%3$s%3$s%2$s'
-            , implode(', ', $r)
-            , $s
+        natsort($useList);
+        $useKeys = implode(PHP_EOL, $useList);
+        $checkExisting = $this->checkExisting($useList, $useKeys);
+        $labels[0] = $checkExisting['label'] ?? null;
+        return trim(sprintf('/** %2$s, total(%4$s) */%1$s%1$s%5$s%3$s'
             , PHP_EOL
-            , $totalMatches + ($missedNamesTotal ?? 0)
+            , implode(', ', $labels)
+            , $checkExisting['keys'] ?? $useKeys
+            , $countUse + ($checkExisting['count'] ?? 0)
+            , $checkExisting['error'] ? implode(PHP_EOL, $checkExisting['error']) . PHP_EOL . PHP_EOL : null
         ));
     }
 
     /**
-     * Get existing use Keywords, that are missing in the generated ones
+     * Check if there are duplicates in generated statements
      *
-     * @param string $content filecontent
-     * @param string $checkIn generated use Keywords;
+     * @param array $list generaated use statements
+     * @param string $keys string representation of list
+     * @param integer $count
+     * @param array $error
+     * @return array
+     */
+    protected function checkExisting(array $list, string $keys, int $count=0, array $error=[]): array
+    {
+        $getExisting = $this->getMissedExisting((string) $keys);
+        if ($getExisting['missed'] ?? false) {
+            $count = count($getExisting['missed']);
+            foreach($this->useGenerator($list) as $i => $useStmt) {
+                $useStmt = str_replace('use ', '', $useStmt);
+                foreach($getExisting['missed'] as $existing) {
+                    if (str_ends_with($existing, '\\' . $useStmt)) {
+                        if (isset($list[$i])) {
+                            $error[] = "// ## possible duplicate detected\n// ## {$list[$i]}";
+                            unset($list[$i]);
+                        }
+                    }
+                }
+            }
+            if ($error)
+                $keys = implode(PHP_EOL, $list);
+            $keys = implode(PHP_EOL, $getExisting['missed']) . "\n{$keys}";
+        }
+        return [
+            'count' => $count,
+            'list' => $list,
+            'keys' => $keys,
+            'error' => $error,
+            'error_total' => $error ? count($error) : 0,
+            'label' => "defined({{DEFINED}}), taken({$count})",
+        ];
+    }
+
+    /**
+     * Get existing use statements, that are missing in the generated ones
+     *
+     * @param string $checkIn generated use Statements;
      * @param array temp var
      * @return array
      */
-    protected function getExistingUses(string $content, string $checkIn, array $r=[]): array
+    protected function getMissedExisting(string $checkIn, array $r=[]): array
     {
-        $classStartsHere = function($l) {
-            foreach($this->classIndicatorNames as $n)
-                if (str_starts_with($l, $n))
-                    return true;
-            return false;
-        };
-        foreach(explode(PHP_EOL, $content) as $i => $l) {
-            $l = $l ? trim($l) : $l;
-            if ($classStartsHere($l))
+        foreach($this->useGenerator($this->fileContentArray) as $l) {
+            $l = trim((string) $l);
+            if (in_array(explode(' ', $l)[0], $this->classIndicatorNames))
                 break;
-            elseif (str_starts_with($l, 'use ') AND str_ends_with($l, ';')) {
-                $r['use_defined'][$i+1] = $l;
-                if (!str_contains($checkIn, $l))
-                    $r['missed'][] = $l;
-            }
+            elseif (str_starts_with($l, 'use ')
+                AND str_ends_with($l, ';')
+                AND !str_contains($checkIn, $l)
+            ) $r['missed'][$l] = $l;
         }
-        $r['use_first_line'] = array_key_first($r['use_defined'] ?? []);
-        $r['use_last_line'] = array_key_last($r['use_defined'] ?? []);
         return $r;
     }
 
     /**
-     * Check if haystack don't contains any of pattern
+     * Yielder
      *
-     * @param string $haystack
-     * @param array $p pattern
-     * @return bool
+     * @param array $a array to iterate through
+     * @return Generator
      */
-    protected function checkIfNotContainsPattern(string $h, array $p): bool
+    protected function useGenerator(array $a): Generator
     {
-        return !preg_match('[' . implode('|', $p) . ']', $h) == true;
-    }
-
-    /**
-     * Check if haystack contains any of pattern
-     *
-     * @param string $haystack
-     * @param array $p pattern
-     * @return
-     */
-    protected function checkIfContainsPattern(string $h, array $p): bool
-    {
-        return preg_match('[' . implode('|', $p) . ']', $h) == true;
-    }
-
-    /**
-     * Remove docBlocks from content before parsing it
-     *
-     * @param string $c content
-     * @return string|null
-     */
-    protected function removeDocBlocks(string $c): ?string
-    {
-        preg_match_all("!/\*\*.*?\*/!s", $c, $docs);
-        if (($docs[0] ?? false) AND is_array($docs[0]))
-            $c = str_replace($docs[0], PHP_EOL, $c);
-        return $this->removeSlashDocs($c);
-    }
-
-    /**
-     * Remove slash comments (// ...). Not precisely, but will do the job
-     *
-     * @param string $c content
-     * @param array $fix remove
-     * @return string|null
-     */
-    protected function removeSlashDocs(string $c, array $fix=[]): ?string
-    {
-        foreach(explode(PHP_EOL, $c) as $l)
-            if (str_contains($l, '// ')) {
-                $xpl = explode('// ', $l);
-                if (($xpl[0] ?? null) AND trim($xpl[0]))
-                    $fix[] = $xpl[0];
-                else $fix[] = null;
-            } else $fix[] = $l;
-        return implode(PHP_EOL, $fix);
+        foreach($a as $i => $v)
+            yield $i => $v;
     }
 
     /**
@@ -311,7 +288,7 @@ class Used
      *
      * @return array
      */
-    protected function getDeclaredClassList(): array
+    protected function getDeclaredClasses(): array
     {
         return array_merge(
             get_declared_traits(),
@@ -321,101 +298,117 @@ class Used
     }
 
     /**
-     * Get Used Classes
+     * Get defined Functions
      *
-     * @param string $haystack
-     * @param array $r temp var
      * @return array
      */
-    protected function getUsedClasses(string $haystack, array $r=[]): array
+    protected function getDefinedFunctions(): array
     {
-        $checkIfClass = function($cls) use($haystack) {
-            $c = str_replace('\\', '\\\\', $cls);
-            return $this->checkIfContainsPattern($haystack, [
-                "\({$c}\s",
-                "\[{$c}",
-                "!{$c}",
-                "new\s{$c}\(",
-                "new\s\\\\{$c}",
-                "\s\\\\{$c}",
-                "{$c}::",
-            ]) ? $cls : false;
-        };
-        foreach($this->getDeclaredClassList() as $needle)
-            if (!in_array($needle, self::$excludeNames['class']))
-                if ($cls = $checkIfClass($needle))
-                    $r[] = $cls;
-        natsort($r);
-        return array_values($r);
+        $f = get_defined_functions(true);
+        return array_merge($f['internal'] ?? [], $f['user'] ?? []);
     }
 
     /**
-     * Search in content for used Constants
+     * Get Used Classes
      *
-     * @param string $haystack
      * @param array $r temp var
      * @return array
      */
-    protected function getUsedConstants(string $haystack, array $r=[]): array
+    protected function usedClasses(array $r=[]): array
     {
-        foreach(array_keys(get_defined_constants()) as $c)
-            if (str_contains($haystack, $c) AND !in_array($c, self::$excludeNames['constant']))
-                if (defined($c))
-                    if ($this->checkIfContainsPattern($haystack, [
-                        "\s{$c}",
-                        "\[{$c}",
-                        "\({$c}",
-                        "!{$c}",
-                        "\/{$c}",
-                        "\\\\{$c}",
-                        "\*{$c}",
-                    ])) $r[] = $c;
+        foreach($this->useGenerator($this->getDeclaredClasses()) as $n)
+            if ($n = (string) $n
+                AND $s = str_replace('\\', '\\\\', $n)
+                AND $this->isNotExcluded($n, 'class')
+                AND $this->patternMatch("[\({$s}\s|\[{$s}|!{$s}|new\s{$s}\(|\s\\\\{$s}\(|\s{$s}::]")
+            ) $r[$n] = $n;
         return $r;
     }
 
     /**
-     * Get Used PHP internal Functions
+     * Get used Constants
      *
-     * @param string $haystack
      * @param array $r temp var
      * @return array
      */
-    protected function getUsedFunctions(string $haystack, array $r=[]): array
+    protected function usedConstants(array $r=[]): array
     {
-        $checkIfFuntion = function(string $fn) use($haystack) {
-            $pattern = [
-                "\s{$fn}\(",
-                "\[{$fn}\(",
-                "\!{$fn}\(",
-                "\({$fn}\(",
-                "={$fn}\(",
-                "\/{$fn}\(",
-                "\\\\{$fn}\(",
-                "@{$fn}\(",
-                "@\\\\{$fn}\(",
-                "\.\.\.{$fn}\(",
-            ];
-            $antiPattern = [
-                "function\s{$fn}\(",
-                "class\s{$fn}",
-                "->{$fn}\("
-            ];
-            if ($this->checkIfContainsPattern($haystack, $pattern))
-                if ($this->checkIfNotContainsPattern($haystack, $antiPattern))
-                    return $fn;
-            return false;
-        };
-        $needles = get_defined_functions(true);
-        if (isset($needles['internal']) AND isset($needles['user']))
-            $needles = array_merge($needles['internal'], $needles['user']);
-        foreach($needles as $needle) {
-            if (is_string($needle)
-                AND $checkIfFuntion($needle)
-                AND !in_array($needle, self::$excludeNames['function'])
-            ) $r[] = $needle;
-        }
-        natsort($r);
-        return array_values($r);
+        foreach($this->useGenerator(array_keys(get_defined_constants())) as $n)
+            if ($n = (string) $n
+                AND $this->isNotExcluded($n, 'constant')
+                AND $this->patternMatch("[\s{$n}|\[{$n}|\({$n}|\/{$n}|\\\\{$n};]")
+            ) $r[$n] = $n;
+        return $r;
+    }
+
+    /**
+     * Get Used Functions
+     *
+     * @param array $r temp var
+     * @return array
+     */
+    protected function usedFunctions(array $r=[]): array
+    {
+        foreach($this->useGenerator($this->getDefinedFunctions()) as $n)
+            if ($n = (string) $n
+                AND $this->isNotExcluded($n, 'function')
+                AND $this->patternMatch("[\s{$n}\(|\({$n}\(|\[{$n}\(|!{$n}\(|@{$n}\(|@\\\\{$n}\(|\\\\{$n}\(|\.\.\.{$n}\(]")
+                AND !$this->patternMatch("[function\s{$n}\(|->{$n}\(]")
+            ) $r[$n] = $n;
+        return $r;
+    }
+
+    /**
+     * Check if needle is excluded
+     *
+     * @param string $n needle
+     * @param string $k Key name [class, constant, function]
+     * @return boolean
+     */
+    protected function isNotExcluded(string $n, string $k): bool
+    {
+        return !in_array($n, self::$excludeNames[$k] ?? []);
+    }
+
+    /**
+     * Check if haystack matches pattern
+     *
+     * @param string $p pattern
+     * @return bool
+     */
+    protected function patternMatch(string $p): bool
+    {
+        return 1 === preg_match($p, $this->fileContent);
+    }
+
+    /**
+     * Remove docBlocks from content before parsing it
+     *
+     * @param string $c content
+     * @return string|null
+     */
+    protected function rmDocBlocks(string $c): ?string
+    {
+        preg_match_all("!/\*?\*.*?\*/!s", $c, $docs);
+        if (($docs[0] ?? false) AND is_array($docs[0]))
+            $c = str_replace($docs[0],  '', $c);
+        return $this->rmSlashDocs($c);
+    }
+
+    /**
+     * Remove slash comments (// ...). Not precisely, but will do the job
+     *
+     * @param string $c content
+     * @param array $fix remove temp var
+     * @return string
+     */
+    protected function rmSlashDocs(string $c, array $fix=[]): string
+    {
+        foreach($this->useGenerator(explode(PHP_EOL, $c)) as $l)
+            if (str_contains($l, '// ') AND $xpl = explode('// ', $l))
+                $fix[] = (($xpl[0] ?? null) AND trim($xpl[0])) ? $xpl[0] : PHP_EOL;
+            else $fix[] = $l;
+        return $fix ? implode(PHP_EOL, $fix) : $c;
     }
 
 }
