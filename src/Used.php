@@ -230,7 +230,7 @@ class Used
                 foreach($getExisting['missed'] as $existing) {
                     if (str_ends_with($existing, '\\' . $useStmt)) {
                         if (isset($list[$i])) {
-                            $error[] = "// ## possible duplicate detected\n// ## {$list[$i]}";
+                            $error[] = "// ## possible duplicate detected ##\n// ## {$list[$i]}";
                             unset($list[$i]);
                         }
                     }
@@ -352,7 +352,7 @@ class Used
         foreach($this->useGenerator($this->getDefinedFunctions()) as $n)
             if ($n = (string) $n
                 AND $this->isNotExcluded($n, 'function')
-                AND $this->patternMatch("[\s{$n}\(|\({$n}\(|\[{$n}\(|!{$n}\(|@{$n}\(|@\\\\{$n}\(|\\\\{$n}\(|\.\.\.{$n}\(]")
+                AND $this->patternMatch("[/{$n}\(|={$n}\(|\s{$n}\(|\({$n}\(|\[{$n}\(|!{$n}\(|@{$n}\(|@\\\\{$n}\(|\\\\{$n}\(|\.\.\.{$n}\(]")
                 AND !$this->patternMatch("[function\s{$n}\(|->{$n}\(]")
             ) $r[$n] = $n;
         return $r;
@@ -404,6 +404,7 @@ class Used
      */
     protected function rmSlashDocs(string $c, array $fix=[]): string
     {
+        // php_strip_whitespace()
         foreach($this->useGenerator(explode(PHP_EOL, $c)) as $l)
             if (str_contains($l, '// ') AND $xpl = explode('// ', $l))
                 $fix[] = (($xpl[0] ?? null) AND trim($xpl[0])) ? $xpl[0] : PHP_EOL;
