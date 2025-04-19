@@ -1,25 +1,60 @@
-# Namespace helper - create `use Namespace;` Statements
+# GetUsed - PHP Namespace Import Generator
 
-This package can parse PHP scripts to extract the names of Classes, Functions and Constants used within the script. The parsed names will then be used to generate a list of `use Namespace;` statements for the parsed script. It can parse any script, but only namespaced Classes allows the use of the generated statements.
+GetUsed is a powerful tool that automatically generates PHP `use` statements for your code. It scans your PHP files to detect all classes, functions, and constants being used, then creates properly formatted import statements ready to paste at the top of your file.
+
+## Why Use This Tool?
+
+### 1. Clean, Readable Code
+Instead of using fully qualified names with backslashes (`\Exception`, `\json_encode()`), proper imports make your code cleaner and more readable.
+
+### 2. Prevent Errors
+Missing backslashes in namespaced code can cause hard-to-debug errors. Using proper imports eliminates this risk entirely.
+
+### 3. Save Time
+Manually tracking and writing imports is tedious. GetUsed generates them all in seconds with a single command.
+
+### 4. IDE Integration
+With the included VSCode integration, you can generate imports with a keyboard shortcut (Ctrl+Shift+T).
+
+### 5. Maintainability
+If a class moves to a different namespace, you only need to update the import statement, not every occurrence in your code.
+
+## How It Works
+
+GetUsed analyzes your PHP code to:
+- Detect classes, interfaces, and traits being used
+- Find function calls that could benefit from imports
+- Identify constants referenced in your code
+- Generate properly formatted `use` statements
+- Comment out imports that already exist in your file
 
 __VSCode Screenshot__
 
-It's pretty hard to talk about this Topic, because it's just called "Namespace" ...
-
 ![Visual Studio Code Example Response](/www/used/assets/screenshot-vscode.png)
 
-The `use` statement can be used in Classes to tell PHP, which Function to use internally for Functions used in the Class. It also can boost scripts by pointing PHP to the right Namespace to use. For example, if you call `json_encode()` within a Class, PHP searches in the calling Class for a Function with the name `json_encode()`, before searching it in the global Namespace (if at all). You can speed up the process with a Backslash before the function name, like: `\json_encode()`, but it looks awful. An alternate is to define any used Function, Class and Constant at the very top of the Class with the 'use' statement. This Package is made to simplify the process.
+## Technical Background
 
-The `use` statement also allows quick Aliasing of Functions in namespaced Classes.
+The `use` statement in PHP allows you to import classes, functions, and constants from other namespaces. For example, if you call `json_encode()` within a namespaced class, PHP first searches in the current namespace before falling back to the global namespace.
+
+You can use backslashes like `\json_encode()` to reference the global namespace directly, but this makes code less readable. A better approach is to import what you need at the top of your file:
 
 ```php
-namespace Any;
-use function myOwnJsonEcode as json_encode;
-# if you now call "json_encode()" in the class,
-# PHP will use "myOwnJsonEcode()" to execute it.
+// Import a class
+use DateTime;
+
+// Import a function
+use function json_encode;
+
+// Import a constant
+use const PHP_EOL;
+
+// Import with an alias
+use function MyNamespace\myJsonEncoder as json_encode;
 ```
 
-## Install Many\Dev\Used
+GetUsed automates this process by analyzing your code and generating all necessary import statements.
+
+## Installation
 
 ```sh
 # create directory if not exist
@@ -28,51 +63,54 @@ mkdir -p ~/bin/many
 # enter directory
 cd ~/bin/many
 
-# clone Many\Dev\Used
+# clone GetUsed
 git clone https://github.com/eypsilon/get-used.git
 
-# make it executable (user+group = rwx)
+# make it executable
 chmod -v 770 ~/bin/many/get-used/GetUsed.php
 ```
 
-__Usage from Terminal__
+## Usage
+
+### From Terminal
 
 ```sh
-~/bin/many/get-used/GetUsed.php  /path/to/src/AnyClass.php
+~/bin/many/get-used/GetUsed.php /path/to/src/AnyClass.php
 ```
 
-__Via [Web interface](./www/used/) using PHPs dev-server__
+### Via Web Interface
 
 ```sh
 cd ~/bin/many/get-used/www/used
 php -S localhost:8000
 ```
 
-and open [localhost:8000](http://localhost:8000)
+Then open [localhost:8000](http://localhost:8000) in your browser.
 
----
-
-## Set an Alias (optional)
-
-Feel free to set one you feel comfortable with.
+### Set an Alias (recommended)
 
 ```sh
+# Edit your bash aliases
 ~$ sudo gedit ~/.bash_aliases
-# put
+
+# Add this line
 alias GetUsed='~/bin/many/get-used/GetUsed.php'
-# refresh aliases
+
+# Refresh aliases
 ~$ source ~/.bash_aliases
 ```
+
+Now you can simply use:
 ```sh
 GetUsed /path/to/src/AnyClass.php
-# Get help -h | info -i | config -c
+
+# Get help
 GetUsed -h
 ```
----
 
-### Used Keywords in Visual Studio Code
+### VSCode Integration
 
-You can use this Package also in VSCode. Set a key combination in `~/.config/Code/User/keybindings.json`
+Add this to your `~/.config/Code/User/keybindings.json`:
 
 ```json
 {
@@ -82,17 +120,9 @@ You can use this Package also in VSCode. Set a key combination in `~/.config/Cod
 }
 ```
 
-and hit the combo on open Files to get `use Namespace;` statements on the fly.
+Now you can press Ctrl+Shift+T on any open PHP file to generate import statements instantly.
 
----
-
-#### Example output
-
-If the generated `use Namespace;` statements are already defined in the script, the generated ones will get commented out.
-
-```sh
-GetUsed /path/to/src/Http/Curler.php
-```
+## Example Output
 
 ```php
 // file = /path/to/src/Http/Curler.php
@@ -109,14 +139,21 @@ use const PHP_EOL;
 use const JSON_UNESCAPED_SLASHES;
 ```
 
-#### Screenshots
+If imports already exist in your file, GetUsed will comment them out to avoid duplicates.
 
-__Web Interface for `GetUsed`__
+## Screenshots
 
+__Web Interface__
 
 ![Web Interface Example Response](/www/used/assets/screenshot-sw.png)
 
-__Terminal__
-The screenshot is taken from the web interface, but it looks identical in Terminal.
+__Terminal Output__
 
 ![Terminal Example Response](/www/used/assets/screenshot-sw-terminal-out.png)
+
+---
+
+## Authors
+
+- Original tool by [Engin Ypsilon](https://github.com/eypsilon)
+- README by [Claude](https://www.anthropic.com/claude), Anthropic's AI assistant
