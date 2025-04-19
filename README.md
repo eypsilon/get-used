@@ -151,9 +151,7 @@ __Terminal Output__
 
 ![Terminal Example Response](/www/used/assets/screenshot-sw-terminal-out.png)
 
----
-
 ## Authors
 
 - Original tool by [Engin Ypsilon](https://github.com/eypsilon)
-- README by [Claude](https://www.anthropic.com/claude), Anthropic's AI assistant
+- README editted by [Claude](https://www.anthropic.com/claude), Anthropic's AI assistant
